@@ -1,0 +1,189 @@
+---
+title: "Untitled"
+author: "Maria"
+date: "2/16/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+## R Markdown
+
+```{r}
+RandomAgent_f <- function(bias){             # removing input (not used!)         
+  choice <- rbinom(1, 1, bias)
+  return(choice)}
+
+rate <- 0.9                                                       # defining rate
+RandomChoice <- RandomAgent_f(rate) # running the function
+RandomChoice                                               
+
+```
+
+```{r}
+
+
+trials <- 120            # defining how many trials      
+randomChoice <- rep(NA, trials) # creating an empty vector
+for (t in seq(trials)){randomChoice[t] <- RandomAgent_f(rate)} # running the function as many times as the trials and saving the output
+d1 <- tibble(trial = seq(trials), choice = RandomChoice) # making a dataframe
+p1 <- ggplot(d1, aes(trial, choice)) + geom_line() + theme_classic() # plot
+p1 # display the plot
+
+```
+
+```{r}
+
+# random agent different rates
+
+d1 <- NULL  # making sure the dataframe is not there already
+
+for (rate in seq(0,1,0.1)){ #looping through rates of 0, 0.1, 0.2, etc. up to 1      
+  randomChoice <- rep(NA, trials)
+  for (t in seq(trials)){randomChoice[t] <- RandomAgent_f(rate)}
+  temp <- tibble(trial = seq(trials), choice = randomChoice, rate) 
+  if (exists("d1")){d1 <- rbind(d1, temp)} else{d1 <- temp}}
+
+p1 <- ggplot(d1, aes(trial, choice)) + geom_line() + facet_wrap(.~rate) + theme_classic() 
+p1
+
+```
+
+```{r}
+# win stay lose shift
+WSLSAgent_f <- function(prevChoice, Feedback){
+  if (Feedback == 1){ 
+    choice = prevChoice 
+  } else if (Feedback == 0) { 
+      choice = 1-prevChoice } 
+  return(choice) }
+
+WSLSChoice <- WSLSAgent_f(1, 0)
+
+```
+
+```{r}
+# Against a random agent
+rate <- 0.7
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+Self[1] <- RandomAgent_f(0.5)
+for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
+
+for (i in 2:trials){
+  if (Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- WSLSAgent_f(Self[i-1], Feedback)
+}
+
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other)) 
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+
+
+```
+```{r}
+
+```
+
+```{r}
+# Win-shift-shift, lose-stay-stay 
+WSSLSSagent <- function(prevChoice, Feedback){
+  for (i in 2:trials){
+    
+  if (i %% 2 == 0) { # if even trial number
+    
+    if (Feedback == 1){
+    win = TRUE  # keep track of current stategy
+    choice = prevChoice 
+  } else if (Feedback == 0) { 
+    win = FALSE  # keep track of current stategy
+    choice = 1-prevChoice }
+    
+  }
+    
+  else if (i %% 2 != 0) { # if odd trial number
+    
+    if (win == TRUE) { # if the win-shift-shift strategy
+    choice = prevChoice
+    if (prevChoice == 1){
+      choice = 0
+  }   else if (prevChoice == 0) {
+        choice = 1}
+    
+    if (win == FALSE) { # if the lose-stay-stay strategy
+    choice = prevChoice
+    if (prevChoice == 1){
+      choice = 1
+  }   else if (prevChoice == 0) {
+        choice = 0}}
+    }
+    
+    }
+    
+      
+        }
+  
+   
+  return(choice) }
+
+WSSLSSagentChoice <- WSSLSSagent(1, 0)
+```
+
+
+```{r}
+# Against a random agent
+rate <- 0.7
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+Self[1] <- RandomAgent_f(0.5)
+for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
+
+for (i in 2:trials){
+  if (Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- WSSLSSagent(Self[i-1], Feedback)
+}
+
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other)) 
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+```
+```{r}
+df <- df %>% 
+  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
+         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+
+```
+```{r}
+# Against a Win-Stay-Lose Shift 
+Self <- rep(NA, trials) 
+Other <- rep(NA, trials) 
+Self[1] <- RandomAgent_f(0.5) 
+Other[1] <- RandomAgent_f(0.5) 
+
+for (i in 2:trials){ 
+  if (Self[i-1] == Other[i-1]){ Feedback = 1 } else {Feedback = 0}
+  Self[i] <- WSSLSSagent(Self[i-1], Feedback) 
+  Other[i] <- WSLSAgent_f(Other[i-1], 1-Feedback) }
+
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other)) 
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+
+```
+```{r}
+df <- df %>% 
+  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
+         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+```
+
