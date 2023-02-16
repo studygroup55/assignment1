@@ -1,0 +1,234 @@
+---
+title: "Assignment 1"
+author: "Lina Elkjær Pedersen"
+date: "2023-02-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Riccardos code
+
+```{r}
+RandomAgent_f <- function(bias){ 
+  choice <- rbinom(1, 1, bias) 
+  return(choice)}
+# specifying mechanism + decision making # output
+# removing input (not used!)
+ 
+```
+
+```{r}
+
+rate <- 0.5 # defining rate
+
+RandomChoice <- RandomAgent_f(rate) # running the function § RandomChoice # displaying the output
+
+```
+
+
+```{r}
+library(tidyverse) # loading necessary library
+trials <- 120 # defining how many trials
+randomChoice <- rep(NA, trials) # creating an empty vector
+
+for (t in seq(trials)){randomChoice[t] <- RandomAgent_f(rate)} # running the function as many times as the trials and saving the output
+
+d1 <- tibble(trial = seq(trials), choice = RandomChoice) # making a dataframe
+
+p1 <- ggplot(d1, aes(trial, choice)) + geom_line() + theme_classic() # plot
+
+p1 # display the plot
+```
+
+
+```{r}
+d1 <- NULL # making sure the dataframe is not there already
+for (rate in seq(0,1,0.1)){ #looping through rates of 0, 0.1, 0.2, etc. up to 1 randomChoice <- rep(NA, trials)
+for (t in seq(trials)){randomChoice[t] <- RandomAgent_f(rate)}
+temp <- tibble(trial = seq(trials), choice = randomChoice, rate)
+if (exists("d1")){d1 <- rbind(d1, temp)} else{d1 <- temp}
+}
+p1 <- ggplot(d1, aes(trial, choice)) + geom_line() + facet_wrap(.~rate) + theme_classic()
+p1
+```
+
+```{r}
+
+d1 <- NULL # making sure the dataframe is not there already
+for (rate in seq(0,1,0.1)){ #looping through rates of 0, 0.1, 0.2, etc. up to 1 randomChoice <- rep(NA, trials)
+for (t in seq(trials)){randomChoice[t] <- RandomAgent_f(rate)}
+temp <- tibble(trial = seq(trials), choice = randomChoice, rate)
+if (exists("d1")){d1 <- rbind(d1, temp)} else{d1 <- temp}
+}
+p1 <- ggplot(d1, aes(trial, choice)) + geom_line() + facet_wrap(.~rate) + theme_classic()
+p1
+```
+
+```{r}
+d1 <- d1 %>% group_by(rate) %>%
+mutate(
+cumulativerate = cumsum(choice) / seq_along(choice) )
+p3 <- ggplot(d1, aes(trial, cumulativerate)) + geom_line() +
+geom_hline(yintercept = 0.5, linetype="dashed") + ylim(0,1) +
+facet_wrap(.~rate) +
+theme_classic()
+
+p3
+ 
+```
+
+```{r}
+ggplot(d1, aes(trial, cumulativerate, color=rate, group=rate)) +
+geom_line() + geom_hline(yintercept = 0.5,
+linetype="dashed") + ylim(0,1) +
+theme_classic()
+```
+# Win-stay loose-shift 
+```{r}
+WSLSAgent_f <- function(prevChoice, Feedback){ 
+  if (Feedback == 1){
+    choice = prevChoice
+  } else if (Feedback == 0) {
+    choice = 1-prevChoice } 
+  return(choice) }
+
+WSLSChoice <- WSLSAgent_f(1, 0)
+
+
+```
+
+# Against a random agent 
+```{r}
+
+rate <- 0.7
+
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+
+Self[1] <- RandomAgent_f(0.5)
+for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
+
+for (i in 2:trials){
+  if (Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- WSLSAgent_f(Self[i-1], Feedback)
+}
+
+#Visualizing 
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other))
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+```
+# Performance
+```{r}
+
+df <- df %>% mutate(
+cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback), cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+
+```
+
+# OUR MODEL
+
+## Probabilistic Win-shift, loose-stay
+
+```{r}
+
+noise <- 0.66
+
+ProbWSLSAgent_f <- function(prevChoice, Feedback, noise){ 
+  
+  if(rbinom(1,1, noise) == 1){ 
+    
+    if (Feedback == 0){
+      choice = prevChoice
+    } else if (Feedback == 1) {
+      choice = 1-prevChoice } }
+  
+  else {
+    if (Feedback == 1){
+      choice = prevChoice
+    } else if (Feedback == 0) {
+      choice = 1-prevChoice } }
+  
+return(choice) }
+
+ProbWSLSChoice <- ProbWSLSAgent_f(1, 0, noise)
+
+
+```
+
+## Probabilistic Win-shift, loose-stay against random agent
+```{r}
+rate <- 0.7
+
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+
+Self[1] <- RandomAgent_f(0.5)
+for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
+
+for (i in 2:trials){
+  if (Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
+}
+
+#Visualizing 
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other))
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+```
+
+
+
+# Performance
+```{r}
+df <- df %>% mutate(
+cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback), cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+
+
+```
+
+#Play against winstay looseshift 
+```{r}
+rate <- 0.7
+
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+
+Self[1] <- RandomAgent_f(0.5)
+Other[1] <- RandomAgent_f(0.5)
+
+#ProbWSLS vs WSLS 
+for (i in 2:trials){
+  if(Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
+  Other[i] <- WSLSAgent_f(Other[i-1], Feedback)
+}
+
+#Visualizing 
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other))
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+```
+
+# Performance
+```{r}
+df <- df %>% mutate(
+cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback), cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+
+```
+
