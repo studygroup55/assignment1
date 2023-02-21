@@ -4,20 +4,27 @@ output: html_document
 date: "2023-02-16"
 ---
 
-Push as Rmd
+**Fetch libraries**
 
 ```{r}
 library(tidyverse)
+library(reshape2)
 ```
 
 
-First create our agents: 
+
+**Creating agents**
+
+
 1. Random agent
 2. Win-stay-lose-shift agent
 3. Strategy-shifting agent (33% win-stay-lose-shift, 66% win-shift-lose-stay)
 4. Win-shift-shift, lose-stay-stay agent
 
-1. Random agent
+
+
+**1. Random agent**
+
 ```{r}
 #Defining agent function
 RandomAgent_f <- function(rate){
@@ -28,8 +35,10 @@ RandomAgent_f <- function(rate){
 #Running simulation
 #Define rate of choosing 0 or 1
 rate <- 0.5
+
 #Define number of trials
 trials <- 120
+
 #Create empty vector
 randomChoice <- rep(NA, trials)
 
@@ -44,11 +53,13 @@ pl <- ggplot(dl, aes(trial, choice)) + geom_line() + theme_classic()
 #pl
 ```
 
-2. Win-stay-lose-shift agent
+
+**2. Win-stay-lose-shift agent**
+
 ```{r}
 #Defining agent function
 WSLSAgent_f <- function(prevChoice, Feedback) {
-  if (Feedback == 1) { #If feedback = 1 (win), stay
+  if (Feedback == 1) {      #If feedback = 1 (win), stay
     choice = prevChoice
   }
   else if (Feedback == 0) { #If feedback = 0 (loss), shift
@@ -58,7 +69,8 @@ WSLSAgent_f <- function(prevChoice, Feedback) {
 }
 ```
 
-3. Strategy-shifting agent (33% win-stay-lose-shift, 66% win-shift-lose-stay)
+**3. Strategy-shifting agent (33% win-stay-lose-shift, 66% win-shift-lose-stay)**
+
 ```{r}
 #Define agent function
 ProbWSLSAgent_f <- function(prevChoice, Feedback, noise){ 
@@ -79,29 +91,30 @@ ProbWSLSAgent_f <- function(prevChoice, Feedback, noise){
 return(choice) }
 ```
 
-4. Win-shift-shift, lose-stay-stay agent
+**4. Win-shift-shift, lose-stay-stay agent**
+
 ```{r}
 #Define agent function
 WSSLSSAgent_f <- function(prevChoice, Feedback){
   for (i in 2:trials){
-  if (i %% 2 == 0) { # if even trial number
+  if (i %% 2 == 0) {      # if even trial number
     if (Feedback == 1){
-    win = TRUE  # keep track of current strategy
+    win = TRUE            # keep track of current strategy
     choice = 1-prevChoice 
   } else if (Feedback == 0) { 
-    win = FALSE  # keep track of current strategy
+    win = FALSE           # keep track of current strategy
     choice = prevChoice }
   }
     
   else if (i %% 2 != 0) { # if odd trial number
-    if (win == TRUE) { # if the win-shift-shift strategy
+    if (win == TRUE) {    # if the win-shift-shift strategy
     choice = prevChoice
     if (prevChoice == 1){
       choice = 0
   }   else if (prevChoice == 0) {
         choice = 1}
     
-    if (win == FALSE) { # if the lose-stay-stay strategy
+    if (win == FALSE) {   # if the lose-stay-stay strategy
     choice = prevChoice
     if (prevChoice == 1){
       choice = 1
@@ -114,14 +127,18 @@ WSSLSSAgent_f <- function(prevChoice, Feedback){
 ```
 
 
-Then simulate the games: 
+**Simulate the games for single player**
+
+
 1. Random agent vs strategy-shifting agent (33% win-stay-lose-shift, 67% win-shift-lose-stay)
 2. WSLS vs strategy-shifting agent (33% win-stay-lose-shift, 66% win-shift-lose-stay)
 3. Random agent vs win-shift-shift, lose-stay-stay agent
 4. WSLS vs win-shift-shift, lose-stay-stay agent
 
 
-1. Random agent vs strategy-shifting agent
+
+**1. Random agent vs strategy-shifting agent**
+
 ```{r}
 #Define rate
 rate <- 0.5
@@ -133,8 +150,8 @@ trials = 120
 noise <- 0.67
 
 #Define empty vectors for dealer and player
-Self <- rep(NA, trials) #player
-Other <- rep(NA, trials) #dealer
+Self <- rep(NA, trials)   #player
+Other <- rep(NA, trials)  #dealer
 
 #Define random first choice for player
 Self[1] <- RandomAgent_f(0.5)
@@ -159,73 +176,9 @@ cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback), cumulativerateOther
 ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
 ```
 
-For ten participants
-```{r}
-library(reshape2)
 
-#Define rate
-rate <- 0.5
+**2. WSLS vs strategy-shifting agent**
 
-# Define the number of trials and the number of repetitions
-trials <- 100
-repetitions <- 10
-
-#Define noise (the probability of using strategy win-shift-lose-stay)
-noise <- 0.67
-
-#Define empty vectors for dealer and player
-Self <- rep(NA, trials) #player
-Other <- rep(NA, trials) #dealer
-
-# Create empty matrices to store the results
-Self_results <- matrix(0, nrow = trials, ncol = repetitions)
-Other_results <- matrix(0, nrow = trials, ncol = repetitions)
-
-#Run simulation
-# Outer loop for repetitions
-for (j in 1:repetitions) {
-  #Define random first choice
-  Self[1] <- RandomAgent_f(0.5) #player
-  for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
-  for (i in 2:trials){
-  if (Self[i-1] == Other[i-1]){
-    Feedback = 1
-  } else {Feedback = 0}
-  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
-  }
-  # Store the results in the matrices
-  Self_results[, j] <- Self
-  Other_results[, j] <- Other
-}
-
-#Transform matrices to long (stacked) format
-Self_long <- melt(Self_results)
-Other_long <- melt(Other_results)
-
-#Merge matrices
-merged <- cbind(Self_long, Other_long[,3])
-
-#Rename dataframe variables
-names(merged) <- c("Trial", "Participant", "Self_choice", "Other_choice")
-
-#Add feedback
-merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
-
-#Add cumulative performance
-merged <- merged %>% 
-  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
-         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
-
-#Plotting with dealer/player colors
-#ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Participant")
-
-#Plotting according to dyad
-ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Dyad")
-
-```
-
-
-2. WSLS vs strategy-shifting agent
 ```{r}
 #Define rate
 rate <- 0.5
@@ -241,8 +194,8 @@ Self <- rep(NA, trials)
 Other <- rep(NA, trials)
 
 #Define random first choice for both 
-Self[1] <- RandomAgent_f(0.5) #player
-Other[1] <- RandomAgent_f(0.5) #dealer
+Self[1] <- RandomAgent_f(0.5)   #player
+Other[1] <- RandomAgent_f(0.5)  #dealer
 
 #Run simulation
 for (i in 2:trials){
@@ -264,78 +217,9 @@ cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback), cumulativerateOther
 ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
 ```
 
-For ten participants
-```{r}
-library(reshape2)
 
-#Define rate
-rate <- 0.5
+**3. Random agent vs win-shift-shift, lose-stay-stay agent**
 
-#Define noise (the probability of using strategy win-shift-lose-stay)
-noise <- 0.67
-
-# Define the number of trials and the number of repetitions
-trials <- 100
-repetitions <- 10
-
-#Define empty vectors
-Self <- rep(NA, trials)
-Other <- rep(NA, trials)
-
-# Create empty matrices to store the results
-Self_results <- matrix(0, nrow = trials, ncol = repetitions)
-Other_results <- matrix(0, nrow = trials, ncol = repetitions)
-
-#Define random first choice for both 
-Self[1] <- RandomAgent_f(0.5) #player
-Other[1] <- RandomAgent_f(0.5) #dealer
-
-
-#Run simulation
-# Outer loop for repetitions
-for (j in 1:repetitions) {
-  #Define random first choice
-  Self[1] <- RandomAgent_f(0.5) #player
-  Other[1] <- RandomAgent_f(0.5) #dealer
-  for (i in 2:trials){
-  if(Self[i-1] == Other[i-1]){
-    Feedback = 1
-  } else {Feedback = 0}
-  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
-  Other[i] <- WSLSAgent_f(Other[i-1], Feedback)
-}
-  # Store the results in the matrices
-  Self_results[, j] <- Self
-  Other_results[, j] <- Other
-}
-
-#Transform matrices to long (stacked) format
-Self_long <- melt(Self_results)
-Other_long <- melt(Other_results)
-
-#Merge matrices
-merged <- cbind(Self_long, Other_long[,3])
-
-#Rename dataframe variables
-names(merged) <- c("Trial", "Participant", "Self_choice", "Other_choice")
-
-#Add feedback
-merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
-
-#Add cumulative performance
-merged <- merged %>% 
-  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
-         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
-
-#Plotting with dealer/player colors
-#ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Participant")
-
-#Plotting according to dyad
-ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Dyad")
-```
-
-
-3. Random agent vs win-shift-shift, lose-stay-stay agent
 ```{r}
 #Define rate
 rate <- 0.5
@@ -374,7 +258,55 @@ df
 ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
 ```
 
-For ten participants
+
+**4. WSLS vs win-shift-shift, lose-stay-stay agent**
+
+```{r}
+#Define empty vectors
+Self <- rep(NA, trials) 
+Other <- rep(NA, trials) 
+
+#Define number of trials
+trials = 120
+
+#Define random first choice
+Self[1] <- RandomAgent_f(0.5)   #player
+Other[1] <- RandomAgent_f(0.5)  #dealer
+
+#Run simulation
+for (i in 2:trials){ 
+  if (Self[i-1] == Other[i-1]){ Feedback = 1 } else {Feedback = 0}
+  Self[i] <- WSSLSSAgent_f(Self[i-1], Feedback) 
+  Other[i] <- WSLSAgent_f(Other[i-1], 1-Feedback) }
+
+#Visualizing 
+#The choices
+df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other)) 
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
+
+#The performance
+df <- df %>% 
+  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
+         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
+
+```
+
+
+
+**Simulate the games for 100 dyads**
+
+
+1. Random agent vs strategy-shifting agent (33% win-stay-lose-shift, 67% win-shift-lose-stay)
+2. WSLS vs strategy-shifting agent (33% win-stay-lose-shift, 66% win-shift-lose-stay)
+3. Random agent vs win-shift-shift, lose-stay-stay agent
+4. WSLS vs win-shift-shift, lose-stay-stay agent
+
+
+
+**1. Random agent vs strategy-shifting agent, 100 dyads**
+
 ```{r}
 library(reshape2)
 
@@ -382,8 +314,153 @@ library(reshape2)
 rate <- 0.5
 
 # Define the number of trials and the number of repetitions
-trials <- 100
-repetitions <- 10
+trials <- 120
+repetitions <- 100
+
+#Define noise (the probability of using strategy win-shift-lose-stay)
+noise <- 0.67
+
+#Define empty vectors for dealer and player
+Self <- rep(NA, trials) #player
+Other <- rep(NA, trials) #dealer
+
+# Create empty matrices to store the results
+Self_results <- matrix(0, nrow = trials, ncol = repetitions)
+Other_results <- matrix(0, nrow = trials, ncol = repetitions)
+
+#Run simulation
+# Outer loop for repetitions
+for (j in 1:repetitions) {
+  #Define random first choice
+  Self[1] <- RandomAgent_f(0.5) #player
+  for (t in seq(trials)){Other[t] <- RandomAgent_f(rate)}
+  for (i in 2:trials){
+  if (Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
+  }
+  # Store the results in the matrices
+  Self_results[, j] <- Self
+  Other_results[, j] <- Other
+}
+
+#Transform matrices to long (stacked) format
+Self_long <- melt(Self_results)
+Other_long <- melt(Other_results)
+
+#Merge matrices (for Other, only column 3, i.e. choices)
+merged <- cbind(Self_long, Other_long[,3])
+
+#Rename dataframe variables
+names(merged) <- c("Trial", "Participant", "Self_choice", "Other_choice")
+
+#Add feedback
+merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
+
+#Add cumulative performance
+merged <- merged %>% 
+  group_by(Participant) %>% 
+  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
+         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+#Plotting with dealer/player colors
+ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Participant") + ggtitle("Random agent (blue) vs strategy-shifting (red)")
+
+#Plotting according to dyad
+#ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Dyad")
+
+#Print mean cumulative rate
+print(mean(merged$cumulativerateSelf))
+print(mean(merged$cumulativerateOther))
+
+```
+
+
+**2. WSLS vs strategy-shifting agent, 100 dyads**
+
+```{r}
+#Define rate
+rate <- 0.5
+
+#Define noise (the probability of using strategy win-shift-lose-stay)
+noise <- 0.67
+
+# Define the number of trials and the number of repetitions
+trials <- 120
+repetitions <- 100
+
+#Define empty vectors
+Self <- rep(NA, trials)
+Other <- rep(NA, trials)
+
+# Create empty matrices to store the results
+Self_results <- matrix(0, nrow = trials, ncol = repetitions)
+Other_results <- matrix(0, nrow = trials, ncol = repetitions)
+
+#Define random first choice for both 
+Self[1] <- RandomAgent_f(0.5) #player
+Other[1] <- RandomAgent_f(0.5) #dealer
+
+
+#Run simulation
+# Outer loop for repetitions
+for (j in 1:repetitions) {
+  #Define random first choice
+  Self[1] <- RandomAgent_f(0.5) #player
+  Other[1] <- RandomAgent_f(0.5) #dealer
+  for (i in 2:trials){
+  if(Self[i-1] == Other[i-1]){
+    Feedback = 1
+  } else {Feedback = 0}
+  Self[i] <- ProbWSLSAgent_f(Self[i-1], Feedback, noise)
+  Other[i] <- WSLSAgent_f(Other[i-1], Feedback)
+}
+  # Store the results in the matrices
+  Self_results[, j] <- Self
+  Other_results[, j] <- Other
+}
+
+#Transform matrices to long (stacked) format
+Self_long <- melt(Self_results)
+Other_long <- melt(Other_results)
+
+#Merge matrices
+merged <- cbind(Self_long, Other_long[,3])
+
+#Rename dataframe variables
+names(merged) <- c("Trial", "Participant", "Self_choice", "Other_choice")
+
+#Add feedback
+merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
+
+#Add cumulative performance
+merged <- merged %>% 
+  group_by(Participant) %>% 
+  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
+         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
+
+#Plotting with dealer/player colors
+ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Participant") + ggtitle("WSLS agent (blue) vs strategy-shifting (red)")
+
+#Plotting according to dyad
+#ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Dyad")
+
+#Print mean cumulative rate
+print(mean(merged$cumulativerateSelf))
+print(mean(merged$cumulativerateOther))
+```
+
+
+**3. Random agent vs win-shift-shift, lose-stay-stay agent, 100 dyads**
+
+```{r}
+#Define rate
+rate <- 0.5
+
+# Define the number of trials and the number of repetitions
+trials <- 120
+repetitions <- 100
 
 #Define empty vectors
 Self <- rep(NA, trials)
@@ -429,58 +506,31 @@ merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
 
 #Add cumulative performance
 merged <- merged %>% 
+  group_by(Participant) %>% 
   mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
          cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
 
 #Plotting with dealer/player colors
-#ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Participant")
+ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Participant") + ggtitle("Random agent (blue) vs consistent agent (red)")
 
 #Plotting according to dyad
-ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Dyad")
+#ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Dyad")
+
+#Print mean cumulative rate
+print(mean(merged$cumulativerateSelf))
+print(mean(merged$cumulativerateOther))
+
 ```
 
-
-4. WSLS vs win-shift-shift, lose-stay-stay agent
+**4. WSLS vs win-shift-shift, lose-stay-stay agent, 100 dyads**
 ```{r}
+# Define the number of trials and the number of repetitions
+trials <- 120
+repetitions <- 100
+
 #Define empty vectors
 Self <- rep(NA, trials) 
 Other <- rep(NA, trials) 
-
-#Define number of trials
-trials = 120
-
-#Define random first choice
-Self[1] <- RandomAgent_f(0.5) #player
-Other[1] <- RandomAgent_f(0.5) #dealer
-
-#Run simulation
-for (i in 2:trials){ 
-  if (Self[i-1] == Other[i-1]){ Feedback = 1 } else {Feedback = 0}
-  Self[i] <- WSSLSSAgent_f(Self[i-1], Feedback) 
-  Other[i] <- WSLSAgent_f(Other[i-1], 1-Feedback) }
-
-#Visualizing 
-#The choices
-df <- tibble(Self, Other, trial = seq(trials), Feedback = as.numeric(Self==Other)) 
-ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, Self)) + geom_line(color="blue", aes(trial, Other))
-
-#The performance
-df <- df %>% 
-  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
-         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
-
-ggplot(df) + theme_classic() + geom_line(color="red", aes(trial, cumulativerateSelf)) + geom_line(color="blue", aes(trial, cumulativerateOther))
-
-```
-
-
-For ten participants
-```{r}
-library(reshape2)
-
-# Define the number of trials and the number of repetitions
-trials <- 100
-repetitions <- 10
 
 # Create empty matrices to store the results
 Self_results <- matrix(0, nrow = trials, ncol = repetitions)
@@ -493,15 +543,10 @@ for (j in 1:repetitions) {
   Other[1] <- RandomAgent_f(0.5) #dealer
   
   # Inner loop for trials
-  for (i in 2:trials) {
-    if (Self[i-1] == Other[i-1]) {
-      Feedback = 1
-    } else {
-      Feedback = 0
-    }
-    Self[i] <- WSSLSSAgent_f(Self[i-1], Feedback)
-    Other[i] <- WSLSAgent_f(Other[i-1], 1-Feedback)
-  }
+  for (i in 2:trials){ 
+    if (Self[i-1] == Other[i-1]){ Feedback = 1 } else {Feedback = 0}
+    Self[i] <- WSSLSSAgent_f(Self[i-1], Feedback) 
+    Other[i] <- WSLSAgent_f(Other[i-1], 1-Feedback) }
   
   # Store the results in the matrices
   Self_results[, j] <- Self
@@ -523,15 +568,23 @@ merged$Feedback <- as.numeric(merged$Self_choice == merged$Other_choice)
 
 #Add cumulative performance
 merged <- merged %>% 
+  group_by(Participant) %>% 
   mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),
          cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )
 
 #Plotting with dealer/player colors
-#ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Participant")
+ggplot(merged) + theme_classic() + geom_line(color="red", aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(color="blue", aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Participant") + ggtitle("WSLS agent (blue) vs consistent agent (red)")
 
 #Plotting according to dyad
-ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Choice", color = "Dyad")
+#ggplot(merged) + theme_classic() + geom_line(aes(x = Trial, y = cumulativerateSelf, group = Participant, color = as.factor(Participant))) + geom_line(aes(x = Trial, y = cumulativerateOther, group = Participant, color = as.factor(Participant))) + labs(x = "Trial", y = "Cumulative outcome", color = "Dyad")
+
+#Print mean cumulative rate
+print(mean(merged$cumulativerateSelf))
+print(mean(merged$cumulativerateOther))
 ```
+
+
+
 
 
 
