@@ -1,0 +1,8 @@
+"0",""
+"0","#The performance"
+"0","df <- df %>% "
+"0","  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),"
+"0","         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )"
+"0",""
+"0","ggplot(df) + theme_classic() + geom_line(color=""red"", aes(trial, cumulativerateSelf)) + geom_line(color=""blue"", aes(trial, cumulativerateOther))"
+"0",""

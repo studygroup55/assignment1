@@ -1,0 +1,6 @@
+"0",""
+"0","#The performance"
+"0","df <- df %>% "
+"0","  mutate(cumulativerateSelf = cumsum(Feedback) / seq_along(Feedback),"
+"0","         cumulativerateOther = cumsum(1-Feedback) / seq_along(Feedback) )"
+"0","df"
